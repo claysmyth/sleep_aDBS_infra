@@ -1,0 +1,12 @@
+
+# Global variables for the project, such as paths to data parquet, settings, and duckdb database
+RCS_SCBS_SESSION_CSV: '../some_path/for_rcs_scbs_session_csv' # Project CSV generated from file-mover analyzing the session-types
+PAST_SESSIONS_CSV: '../some_path/for_past_sessions_csv' # CSV with past sessions
+TIMEDOMAIN_PARQUET_BASE_PATH: '../some_path/sub_path_needed_for_individual' # Time domain parquets
+SETTINGS_PARQUET_BASE_PATH: '../some_path/sub_path_needed_for_individual' # Settings saved from RC+S sessions
+DUCKDB_PATH: '../some_path/for_duckdb_database'
+OPTIMIZATION_LOGS_BASE_PATH: '../some_path/for_optimization_logs' # For saving optimization logs, e.g. which data points have already been searched
+ADAPTIVE_CONFIGS_BASE_PATH: '../some_path/for_adaptive_configs' # For saving adaptive configs
+
+# Terminal commands
+MATLAB_PROCESS_SESSION_COMMAND: '/usr/local/MATLAB/R2022a/matlab -nodisplay -nosplash -nodesktop -r "/matlab/process_session;quit;"' # Command to run MATLAB
