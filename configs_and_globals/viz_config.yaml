@@ -1,0 +1,13 @@
+# Example (may change)
+functions:
+  line_plot:
+    data: "some_output_of_analysis_function" # Should match the name of the function in analysis_config.yaml
+    log: 
+      - "WandB" #optional, if you want to log to wandb. Highly recommended
+      - "file"
+      - "prefect" #optional, if you want to log to prefect
+    kwargs: # optional, if you want to pass in additional arguments to the function. Can have as many as you want
+      - "title": "some_title"
+      - "x_label": "some_x_label"
+      - "y_label": "some_y_label"
+  # etc...

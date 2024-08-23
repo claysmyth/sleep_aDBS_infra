@@ -1,22 +1,54 @@
 % This script takes 
 
-% Read the YAML configuration
-yaml_config = read_yaml('path/to/yaml.yaml');
-PARQUET_OUTPUT_DIR = yaml_config.PARQUET_OUTPUT_DIR;
+% % Read the YAML configuration 
+% yaml_config = read_yaml(fullfile('..', 'configs_and_globals', 'global_variables.yaml'));
+% TIMEDOMAIN_PARQUET_BASE_PATH = yaml_config.TIMEDOMAIN_PARQUET_BASE_PATH;
+% SETTINGS_PARQUET_BASE_PATH = yaml_config.SETTINGS_PARQUET_BASE_PATH;
 
-% Ensure output directory exists
-if ~exist(PARQUET_OUTPUT_DIR, 'dir')
-    mkdir(PARQUET_OUTPUT_DIR);
-end
+% % Ensure output directory exists
+% if ~exist(TIMEDOMAIN_PARQUET_BASE_PATH, 'dir')
+%     mkdir(TIMEDOMAIN_PARQUET_BASE_PATH);
+% end
 
-% Read the session information from a CSV file
-csv_files = dir('tmp*.csv');
-if isempty(csv_files)
-    error('No CSV file found with session information.');
-end
+% if ~exist(SETTINGS_PARQUET_BASE_PATH, 'dir')
+%     mkdir(SETTINGS_PARQUET_BASE_PATH);
+% end
+
+% % Read the session information from a temporary CSV file, created by process_session_pipeline.py
+% csv_files = dir('tmp*.csv');
+% if isempty(csv_files)
+%     error('No CSV file found with session information.');
+% end
 
 % Read the CSV file
 session_info = readtable(csv_files(1).name, 'Delimiter', ',', 'ReadVariableNames', true);
+
+% Check if destination folders exist, if not create them
+for i = 1:height(session_info)
+    parquet_path = session_info.parquet_path{i};
+    settings_path = session_info.settings_path{i};
+    
+    % Check and create parquet_path if it doesn't exist
+    if ~exist(parquet_path, 'dir')
+        [success, msg] = mkdir(parquet_path);
+        if ~success
+            warning('Failed to create directory for parquet_path: %s. Error: %s', parquet_path, msg);
+        else
+            fprintf('Created directory: %s\n', parquet_path);
+        end
+    end
+    
+    % Check and create settings_path if it doesn't exist
+    if ~exist(settings_path, 'dir')
+        [success, msg] = mkdir(settings_path);
+        if ~success
+            warning('Failed to create directory for settings_path: %s. Error: %s', settings_path, msg);
+        else
+            fprintf('Created directory: %s\n', settings_path);
+        end
+    end
+end
+
 
 % Parse the txt file info
 curr_device = None; % Should be first line in txt file
@@ -64,8 +96,8 @@ for i=1:size(session_info, 1)
 
     dataStreams = {timeDomainData, PowerData, AdaptiveData, AccelData};
     [combinedDataTable] = createCombinedTable(dataStreams,unifiedDerivedTimes,metaData);
-    parquet_out_file_path = fullfile(OUT_PATH_BASE, curr_device, [session_info.('Session#'){i}, '.parquet']);
-    parquetwrite(parquet_out_file_path, combinedDataTable);
+    td_parquet_out_file_path = fullfile(parquet_path, [session_info.('Session#'){i}, '.parquet']);
+    parquetwrite(td_parquet_out_file_path, combinedDataTable);
 
     if isempty(all_data_table(strcmp(all_data_table.Devices, curr_device), :).TDSettings{1})
         all_data_table(strcmp(all_data_table.Devices, curr_device), :).TDSettings{1} = denest_and_process_td_settings(timeDomainSettings, metaData, session_descriptors);
@@ -98,13 +130,12 @@ end
 
 %%
 for i=1:size(all_data_table,1)
-    curr_path = [OUT_PATH_BASE, all_data_table.Devices{i}, '/'];
-    writetable(all_data_table(i,:).TDSettings{1}, fullfile(curr_path, [output_prefix, 'TDSettings.csv']))
-    writetable(all_data_table(i,:).FftAndPowerSettings{1}, fullfile(curr_path, [output_prefix, 'FftAndPowerSettings.csv']))
-    writetable(all_data_table(i,:).DetectorSettings{1}, fullfile(curr_path, [output_prefix, 'DetectorSettings.csv']))
-    writetable(all_data_table(i,:).AdaptiveSettings{1}, fullfile(curr_path, [output_prefix, 'AdaptiveSettings.csv']))
-    writetable(all_data_table(i,:).StimSettings{1}, fullfile(curr_path, [output_prefix, 'StimSettings.csv']))
-    writetable(all_data_table(i,:).EventLog{1}, fullfile(curr_path, [output_prefix, 'EventLogs.csv']))
+    writetable(all_data_table(i,:).TDSettings{1}, fullfile(settings_path, 'TDSettings.csv'))
+    writetable(all_data_table(i,:).FftAndPowerSettings{1}, fullfile(settings_path, 'FftAndPowerSettings.csv'))
+    writetable(all_data_table(i,:).DetectorSettings{1}, fullfile(settings_path, 'DetectorSettings.csv'))
+    writetable(all_data_table(i,:).AdaptiveSettings{1}, fullfile(settings_path, 'AdaptiveSettings.csv'))
+    writetable(all_data_table(i,:).StimSettings{1}, fullfile(settings_path, 'StimSettings.csv'))
+    writetable(all_data_table(i,:).EventLog{1}, fullfile(settings_path, 'EventLogs.csv'))
 end
 
 %%
@@ -140,18 +171,18 @@ end
 %%
 function [td_settings_adjusted] = denest_and_process_td_settings(td_settings, metaData, session_descriptors)
     ep_mode = zeros(1,4);
-    %gains = zeros(1,4);
+    gains = zeros(1,4);
     hpf = zeros(1,4);
     td_settings_adjusted = td_settings(:,1:end-1);
  
     for i=1:size(td_settings_adjusted, 1)
         ep_mode = [td_settings.TDsettings{i,1}.evokedMode];
-        %gains = [td_settings.TDsettings{i,1}.gain];
+        gains = [td_settings.TDsettings{i,1}.gain];
         hpf = [td_settings.TDsettings{i,1}.hpf];
         
         % Double check that the below is going into the correct row
         td_settings_adjusted.evokedMode{i} = ep_mode;
-        %td_settings_adjusted.gain{i} = gains;
+        td_settings_adjusted.gain{i} = gains;
         td_settings_adjusted.hpf{i} = hpf;
 
     end
