@@ -1,8 +1,14 @@
 # Analysis functions to execute on each recording session.
 # Key must be a function in src.analysis.analysis_funcs
 functions:
-
-
+  null_percentage:
+    columns:
+      - 'td_key0'
+      - 'td_key2'
+      - 'td_key3'
+      
+  recording_time:
+    time_col: 'localTime'
 
 # Criteria to determine if multiple recordings should be aggregated into a single group.
 # Must be a function in src.analysis.aggregation_criteria

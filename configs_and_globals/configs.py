@@ -2,7 +2,7 @@ import yaml
 
 GLOBAL_VARIABLES_PATH = 'configs_and_globals/global_variables.yaml'
 ANALYSIS_CONFIG_PATH = 'configs_and_globals/analysis_config.yaml'
-VISUALIZATION_CONFIG_PATH = 'configs_and_globals/visualization_config.yaml'
+VISUALIZATION_CONFIG_PATH = 'configs_and_globals/viz_and_reporting_config.yaml'
 
 
 class Config:
@@ -15,13 +15,12 @@ class Config:
     def to_dict(self):
         return {key: getattr(self, key) for key in self.__dict__.keys()}
 
-# Create a Config instance and load the goobal_variables YAML file, so that the variables can be accessed as attributes by other scripts
-global_config = Config(GLOBAL_VARIABLES_PATH)
+# Create Config instances and load the YAML files
+global_config = Config(GLOBAL_VARIABLES_PATH).to_dict() 
+analysis_config = Config(ANALYSIS_CONFIG_PATH).to_dict()
+visualization_config = Config(VISUALIZATION_CONFIG_PATH).to_dict()
 
-# Repeat but for analysis configurations (e.g. fourier transform params, etc.)
-analysis_config = Config(ANALYSIS_CONFIG_PATH)
-
-# Repeat but for visualization configurations (e.g. plotting analyses to wandb, prefect, etc.)
-visualization_config = Config(VISUALIZATION_CONFIG_PATH)
+# Make global_config, analysis_config, and visualization_config importable
+__all__ = ['global_config', 'analysis_config', 'visualization_config']
 
 

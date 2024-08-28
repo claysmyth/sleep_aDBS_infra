@@ -1,17 +1,11 @@
-from prefect import flow, task
-import yaml
+from prefect import flow, task, tags
 import polars as pl
-from process_session_pipeline import process_and_session
+from process_session_pipeline import process_session
 import os
 from src.analysis.analysis_pipe import AnalysisPipe
-from src.visualization.visualization_pipe import VisualizationPipe
+from viz_and_reporting_pipeline import VisualizationAndReportingPipeline
+from configs_and_globals.configs import global_config
 
-GLOBALS_PATH = "configs_and_globals/global_variables.yaml"
-
-def get_globals():
-    with open(GLOBALS_PATH, "r") as file:
-        globals = yaml.safe_load(file)
-    return globals
 
 @task
 def get_new_sessions(project_df, reported_sessions_df):
@@ -28,18 +22,16 @@ def get_new_sessions(project_df, reported_sessions_df):
     
 @flow
 def main_pipeline():
-    globals = get_globals()
     
     # Read in table that contains sessions logged to desired project via (insert github link here)
-    project_df = pl.read_csv(globals["PROJECT_CSV_PATH"])
+    project_df = pl.read_csv(global_config["PROJECT_CSV_PATH"])
     
     # Read in table that contains sessions which have already been reported     
     # Check if the file exists, if not create an empty CSV
-    if os.path.exists(globals["REPORTED_SESSIONS_CSV_PATH"]):
-        reported_sessions_df = pl.read_csv(globals["REPORTED_SESSIONS_CSV_PATH"])
+    if os.path.exists(global_config["REPORTED_SESSIONS_CSV_PATH"]):
+        reported_sessions_df = pl.read_csv(global_config["REPORTED_SESSIONS_CSV_PATH"])
     else:
         reported_sessions_df = pl.DataFrame()
-        reported_sessions_df.write_csv(globals["REPORTED_SESSIONS_CSV_PATH"])
     
     # Get sessions which have not been reported yet
     sessions_info = get_new_sessions(project_df, reported_sessions_df)
@@ -49,52 +41,58 @@ def main_pipeline():
         # Could manage AnalysisPipes configs with hydra?
     # Currently, only one AnalysisPipe, VisualizationPipe, and ReportingPipe is used for all projects and session types.
     analysis_pipe = AnalysisPipe()
-    visualization_pipe = VisualizationPipe()
+    visualization_pipe = VisualizationAndReportingPipeline()
     
-    for sessions_subset_info in sessions_info.partition(['RCS#', 'Side', 'SessionType(s)']):
+    # It's useful to have a device column as a unit for analysis and visualization
+    sessions_info = sessions_info.with_columns((pl.col('RCS#') + pl.col('Side').str.slice(0, 1)).alias('Device'))
+    for sessions_subset_info in sessions_info.partition_by(['Device', 'SessionType(s)']):
 
+        with tags(sessions_subset_info.get_column('Device')[0], sessions_subset_info.get_column('SessionType(s)')[0]):
+            sessions_data = []
+            for i in range(sessions_subset_info.height):
+                session_data = process_session(sessions_subset_info[i])
+                sessions_data.append(session_data)
+            
+            # Run aggregation criteria on sessions... otherwise analyze, viz, and bayesian optimize each session individually.
+            if len(sessions_subset_info) > 1:
+                # Check if sessions are from the same 'unit' or 'group' of analysis (e.g. multiple recordings in a single night of sleep for sleep project)
+                sessions_subset_info = analysis_pipe.run_aggregation_criteria(sessions_subset_info, sessions_data)
 
-        sessions_data = []
-        for session_info in sessions_subset_info:
-            session_data = process_and_session(session_info)
-            sessions_data.append(session_data)
-        
-        # Run aggregation criteria on sessions... otherwise analyze, viz, and bayesian optimize each session individually.
-        if len(sessions_subset_info) > 1:
-            # Check if sessions are from the same 'unit' or 'group' of analysis (e.g. multiple recordings in a single night of sleep for sleep project)
-            sessions_subset_info = analysis_pipe.run_aggregation_criteria(sessions_subset_info, sessions_data)
+                session_info_grouped, group_data = analysis_pipe.update_data_with_aggregation_criteria(sessions_data)
 
-            list_of_groups, group_data = analysis_pipe.update_data_with_aggregation_criteria(sessions_data)
+            else:
+                group_data = sessions_data
+                session_info_grouped = [sessions_subset_info]
 
-        else:
-            group_data = sessions_data
-
-        # Next, run analysis on the data. Get delta power, etc.. Each analysis result is a key: value pair of function name and polars DataFrame
-        for data in group_data:
             # Next, run analysis on the data. Get delta power, etc.. Each analysis result is a key: value pair of function name and polars DataFrame
-            analyses: dict[str, pl.DataFrame] = analysis_pipe.run_analysis(data)
+            for i, data in enumerate(group_data):
+                # Next, run analysis on the data. Get delta power, etc.. Each analysis result is a key: value pair of function name and polars DataFrame
+                analyses: dict[str, pl.DataFrame] = analysis_pipe.run_analysis(data)
 
-            # Visualize the data and log to relevant dashboards (e.g. WandB, prefect, and local)
-            visualization_pipe.run(data, analyses)
+                # Visualize the data and log to relevant dashboards (e.g. WandB, prefect, and local)
+                visualization_pipe.run(data, analyses, session_info_grouped[i])
 
-            # Report the data to relevant dashboards (e.g. WandB, prefect, and local)
-            # Likely to be included in the visualization_pipe.run() function
+                # Report the data to relevant dashboards (e.g. WandB, prefect, and local)
+                # Likely to be included in the visualization_pipe.run() function
 
-        # Run Bayesian optimization on the data
-        # TODO: Maybe include bayesian optimization in the group loop? This will simplify the reporting, 
-        #               but will potentially increase complexity of trying to incorporate multiple observations of reward function simultaneously (one for each group).
-        # TODO: Add Bayesian optimization to the pipeline. Each group of sessions will act as invidiual observations of reward function.
-        # TODO: Ideally include functionality to incorporate multiple observations simultaneously.
+                # Saving to DuckDB (maybe after Bayesian optimization?)
+
+            # ! Not implemented yet
+            # Run Bayesian optimization on the data
+            # TODO: Maybe include bayesian optimization in the group loop? This will simplify the reporting, 
+            #               but will potentially increase complexity of trying to incorporate multiple observations of reward function simultaneously (one for each group).
+            # TODO: Add Bayesian optimization to the pipeline. Each group of sessions will act as invidiual observations of reward function.
+            # TODO: Ideally include functionality to incorporate multiple observations simultaneously.
 
     
     # Add additional information to sessions df. Save QC info in a separate table?
-    sessions = sessions.join(session_process_info, on="SessionName")
+    # sessions = sessions.join(session_process_info, on="SessionName")
 
     # Add processed sessions to past sessions which were already reported
-    reported_sessions_df = reported_sessions_df.vstack(sessions)
+    reported_sessions_df = reported_sessions_df.vstack(sessions_info)
     
     # Record to csv
-    reported_sessions_df.write_csv(globals["past_sessions_df"], overwrite=True)
+    reported_sessions_df.write_csv(global_config["past_sessions_df"], overwrite=True)
     
 
 if __name__ == "__main__":

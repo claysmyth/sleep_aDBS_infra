@@ -14,11 +14,11 @@
 %     mkdir(SETTINGS_PARQUET_BASE_PATH);
 % end
 
-% % Read the session information from a temporary CSV file, created by process_session_pipeline.py
-% csv_files = dir('tmp*.csv');
-% if isempty(csv_files)
-%     error('No CSV file found with session information.');
-% end
+% Read the session information from a temporary CSV file, created by process_session_pipeline.py
+csv_files = dir('tmp*.csv');
+if isempty(csv_files)
+    error('No CSV file found with session information.');
+end
 
 % Read the CSV file
 session_info = readtable(csv_files(1).name, 'Delimiter', ',', 'ReadVariableNames', true);
@@ -26,7 +26,7 @@ session_info = readtable(csv_files(1).name, 'Delimiter', ',', 'ReadVariableNames
 % Check if destination folders exist, if not create them
 for i = 1:height(session_info)
     parquet_path = session_info.parquet_path{i};
-    settings_path = session_info.settings_path{i};
+    settings_path = session_info.csv_path{i};
     
     % Check and create parquet_path if it doesn't exist
     if ~exist(parquet_path, 'dir')
@@ -51,12 +51,12 @@ end
 
 
 % Parse the txt file info
-curr_device = None; % Should be first line in txt file
-session_info = strsplit(session_info{session_idx}, ',');
-PROJ_SUMMARY_CSV = strtrim(session_info{1});
-desired_session_types = strtrim(session_info{2});
-output_prefix = strtrim(session_info{3});
-OUT_PATH_BASE = strtrim(session_info{4});
+curr_device = session_info.Device; % Should be first line in txt file
+% session_info = strsplit(session_info{session_idx}, ',');
+% PROJ_SUMMARY_CSV = strtrim(session_info{1});
+% desired_session_types = strtrim(session_info{2});
+% output_prefix = strtrim(session_info{3});
+% OUT_PATH_BASE = strtrim(session_info{4});
 
 
 filler_array = cell(size(session_info));

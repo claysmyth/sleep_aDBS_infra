@@ -37,7 +37,7 @@ class AnalysisPipe:
     Also handles aggregation criteria and tags.
     """ 
     def __init__(self):
-        self.config_dict = analysis_config.to_dict()
+        self.config_dict = analysis_config
         self.tasks = load_analysis_funcs(self.config_dict['functions'])
         self.aggregation_criteria_func = None
         self._setup_aggregation()
@@ -78,4 +78,4 @@ class AnalysisPipe:
             relevant_data = sessions_data[sessions_group.get_column('SessionIndex').list()]
             sessions_data_grouped.append(pl.concat(relevant_data, how='vertical').sort('localTime'))
 
-        return sessions_grouped.select(pl.exclude('SessionIndex')), sessions_data_grouped
+        return sessions_grouped, sessions_data_grouped

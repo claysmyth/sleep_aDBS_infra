@@ -1,4 +1,17 @@
-# Example (may change)
+# Organization and Logging info
+local_reporting:
+  project: Sleep_aDBS
+  path_base: /media/longterm_hdd/Clay/${project}
+  # add session type, rcs#, and session# during execution
+  run_tracking_csv: ${setup.path_base}/sleep_aDBS_run_tracking.csv
+  code_snapshot_exlude:
+
+# WandB logging
+wandb:
+  project: Sleep_aDBS
+  entity: littlestarr
+
+# Visualization functions to log
 functions:
   line_plot:
     data: "some_output_of_analysis_function" # Should match the name of the function in analysis_config.yaml
