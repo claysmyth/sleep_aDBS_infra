@@ -1,0 +1,6 @@
+# For hydra management of configs
+defaults:
+  - _self_
+  - global_config: default
+  - analysis_config: default
+  - viz_and_reporting_config: default

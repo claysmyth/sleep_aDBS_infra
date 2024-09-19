@@ -1,21 +1,11 @@
-% This script takes 
-
-% % Read the YAML configuration 
-% yaml_config = read_yaml(fullfile('..', 'configs_and_globals', 'global_variables.yaml'));
-% TIMEDOMAIN_PARQUET_BASE_PATH = yaml_config.TIMEDOMAIN_PARQUET_BASE_PATH;
-% SETTINGS_PARQUET_BASE_PATH = yaml_config.SETTINGS_PARQUET_BASE_PATH;
-
-% % Ensure output directory exists
-% if ~exist(TIMEDOMAIN_PARQUET_BASE_PATH, 'dir')
-%     mkdir(TIMEDOMAIN_PARQUET_BASE_PATH);
-% end
-
-% if ~exist(SETTINGS_PARQUET_BASE_PATH, 'dir')
-%     mkdir(SETTINGS_PARQUET_BASE_PATH);
-% end
+% This script takes in a tmp file created by process_session_pipeline.py
+% and processes the sessions data.
 
 % Read the session information from a temporary CSV file, created by process_session_pipeline.py
-csv_files = dir('tmp*.csv');
+CURR_DIR_PATH = '/home/claysmyth/code/sleep_aDBS_infra/matlab/';
+% Assumes tmp file containing session info is written to this file's
+% directory
+csv_files = dir([CURR_DIR_PATH, '/tmp*.csv']);
 if isempty(csv_files)
     error('No CSV file found with session information.');
 end
@@ -28,13 +18,14 @@ for i = 1:height(session_info)
     parquet_path = session_info.parquet_path{i};
     settings_path = session_info.csv_path{i};
     
-    % Check and create parquet_path if it doesn't exist
-    if ~exist(parquet_path, 'dir')
-        [success, msg] = mkdir(parquet_path);
+    % Check and create parquet_dir (where parquet goes) if it doesn't exist
+    [parquet_dir, filename, ext] = fileparts(parquet_path);
+    if ~exist(parquet_dir, 'dir')
+        [success, msg] = mkdir(parquet_dir);
         if ~success
-            warning('Failed to create directory for parquet_path: %s. Error: %s', parquet_path, msg);
+            warning('Failed to create directory for parquet_path: %s. Error: %s', parquet_dir, msg);
         else
-            fprintf('Created directory: %s\n', parquet_path);
+            fprintf('Created directory: %s\n', parquet_dir);
         end
     end
     
@@ -52,120 +43,54 @@ end
 
 % Parse the txt file info
 curr_device = session_info.Device; % Should be first line in txt file
-% session_info = strsplit(session_info{session_idx}, ',');
-% PROJ_SUMMARY_CSV = strtrim(session_info{1});
-% desired_session_types = strtrim(session_info{2});
-% output_prefix = strtrim(session_info{3});
-% OUT_PATH_BASE = strtrim(session_info{4});
+
+disp(['On row ', int2str(i), ' of ' int2str(size(session_info, 1))])
+session_identifier = [session_info.Device{i}(4:end), '_', char(datetime(session_info.TimeEnded{i}, 'InputFormat', 'MM-dd-yyyy HH:mm:SS', 'Format', 'MM-dd-yy'))];
+session_descriptors = session_info(i, {'Session_','TimeStarted', 'TimeEnded', 'SessionType_s_', 'Device'});
+session_descriptors.SessionIdentity = session_identifier;
+session_descriptors = renamevars(session_descriptors, {'TimeStarted', 'TimeEnded', 'Session_', 'SessionType_s_'}, {'SessionStartTime', 'SessionEndTime', 'SessionNum', 'SessionTypes'});
+
+raw_data_path = regexprep(char(session_info.Data_Server_FilePath{i}), "'", '');
+
+[unifiedDerivedTimes, timeDomainData, timeDomainData_onlyTimeVariables, ...
+timeDomain_timeVariableNames, AccelData, AccelData_onlyTimeVariables, ... 
+Accel_timeVariableNames, PowerData, PowerData_onlyTimeVariables, ...
+Power_timeVariableNames, FFTData, FFTData_onlyTimeVariables, ... 
+FFT_timeVariableNames, AdaptiveData, AdaptiveData_onlyTimeVariables, ...
+Adaptive_timeVariableNames, timeDomainSettings, powerSettings, ...
+fftSettings, eventLogTable, metaData, stimSettingsOut, stimMetaData, ...
+stimLogSettings, DetectorSettings, AdaptiveStimSettings, ...
+AdaptiveEmbeddedRuns_StimSettings] = ProcessRCS(raw_data_path, 2);
 
 
-filler_array = cell(size(session_info));
-for i=1:size(session_info)
-    filler_array{i} = table;
-end
+dataStreams = {timeDomainData, PowerData, AdaptiveData, AccelData};
+[combinedDataTable] = createCombinedTable(dataStreams,unifiedDerivedTimes,metaData);
+td_parquet_out_file_path = fullfile(parquet_path);
 
-% all_data_table.SenseSettings = filler_array;
-all_data_table.TDSettings = filler_array;
-all_data_table.FftAndPowerSettings = filler_array;
-all_data_table.DetectorSettings = filler_array;
-all_data_table.AdaptiveSettings = filler_array;
-all_data_table.StimSettings = filler_array;
-all_data_table.EventLog = filler_array;
+% Drop this column, as it tends to give problems and only indicates
+% which power band channels are active (which can be easily inferred
+% from data or TD channel settings)
+combinedDataTable.Power_ValidDataMask = [];
+% Not even sure what this column does... something about internal vs
+% test values
+combinedDataTable.Power_ExternalValuesMask = [];
 
-%metadata = table;
+% Add a new column to combinedDataTable with the session number
+sessionNumber = repmat(session_info.('Session_')(1), height(combinedDataTable), 1);
+combinedDataTable.SessionNumber = sessionNumber;
+combinedDataTable.localTime.TimeZone = 'America/Los_Angeles';
 
-for i=1:size(session_info, 1)
-    disp(['On row ', int2str(i), ' of ' int2str(size(session_info, 1))])
-    session_identifier = [session_info.Device{i}(4:end), '_', char(datetime(session_info.TimeEnded{i}, 'InputFormat', 'MM-dd-yyyy HH:mm:SS', 'Format', 'MM-dd-yy'))];
-    session_descriptors = session_info(i, {'Session#','TimeStarted', 'TimeEnded', 'SessionType(s)', 'Device'});
-    session_descriptors.SessionIdentity = session_identifier;
-    session_descriptors = renamevars(session_descriptors, {'TimeStarted', 'TimeEnded', 'SessionType(s)'}, {'SessionStartTime', 'SessionEndTime', 'SessionTypes'});
-    
-    raw_data_path = regexprep(char(session_info.Data_Server_FilePath{i}), "'", '');
-
-    [unifiedDerivedTimes, timeDomainData, timeDomainData_onlyTimeVariables, ...
-    timeDomain_timeVariableNames, AccelData, AccelData_onlyTimeVariables, ... 
-    Accel_timeVariableNames, PowerData, PowerData_onlyTimeVariables, ...
-    Power_timeVariableNames, FFTData, FFTData_onlyTimeVariables, ... 
-    FFT_timeVariableNames, AdaptiveData, AdaptiveData_onlyTimeVariables, ...
-    Adaptive_timeVariableNames, timeDomainSettings, powerSettings, ...
-    fftSettings, eventLogTable, metaData, stimSettingsOut, stimMetaData, ...
-    stimLogSettings, DetectorSettings, AdaptiveStimSettings, ...
-    AdaptiveEmbeddedRuns_StimSettings] = ProcessRCS(raw_data_path, 2);
+parquetwrite(td_parquet_out_file_path, combinedDataTable);
 
 
-    dataStreams = {timeDomainData, PowerData, AdaptiveData, AccelData};
-    [combinedDataTable] = createCombinedTable(dataStreams,unifiedDerivedTimes,metaData);
-    td_parquet_out_file_path = fullfile(parquet_path, [session_info.('Session#'){i}, '.parquet']);
-    parquetwrite(td_parquet_out_file_path, combinedDataTable);
-
-    if isempty(all_data_table(strcmp(all_data_table.Devices, curr_device), :).TDSettings{1})
-        all_data_table(strcmp(all_data_table.Devices, curr_device), :).TDSettings{1} = denest_and_process_td_settings(timeDomainSettings, metaData, session_descriptors);
-        all_data_table(strcmp(all_data_table.Devices, curr_device), :).FftAndPowerSettings{1} = denest_and_process_fft_power_settings(powerSettings, session_descriptors);
-        all_data_table(strcmp(all_data_table.Devices, curr_device), :).AdaptiveSettings{1} = denest_and_process_adaptive_settings(AdaptiveStimSettings, session_descriptors);
-        all_data_table(strcmp(all_data_table.Devices, curr_device), :).StimSettings{1} = denest_and_process_stim_settings(stimLogSettings, stimMetaData, session_descriptors);
-        all_data_table(strcmp(all_data_table.Devices, curr_device), :).DetectorSettings{1} = denest_and_process_detector_settings(DetectorSettings, session_descriptors);
-        all_data_table(strcmp(all_data_table.Devices, curr_device), :).EventLog{1} = eventLogTable;
-    else
-        all_data_table(strcmp(all_data_table.Devices, curr_device), :).TDSettings{1} = ...
-            [all_data_table(strcmp(all_data_table.Devices, curr_device),:).TDSettings{1}; denest_and_process_td_settings(timeDomainSettings, metaData, session_descriptors)];
-
-        all_data_table(strcmp(all_data_table.Devices, curr_device), :).FftAndPowerSettings{1} = ...
-            [all_data_table(strcmp(all_data_table.Devices, curr_device), :).FftAndPowerSettings{1}; denest_and_process_fft_power_settings(powerSettings, session_descriptors)];
-
-        all_data_table(strcmp(all_data_table.Devices, curr_device), :).DetectorSettings{1} = ...
-            [all_data_table(strcmp(all_data_table.Devices, curr_device), :).DetectorSettings{1}; denest_and_process_detector_settings(DetectorSettings, session_descriptors)];
-
-        all_data_table(strcmp(all_data_table.Devices, curr_device), :).AdaptiveSettings{1} = ...
-            [all_data_table(strcmp(all_data_table.Devices, curr_device), :).AdaptiveSettings{1}; denest_and_process_adaptive_settings(AdaptiveStimSettings, session_descriptors)];
-
-        all_data_table(strcmp(all_data_table.Devices, curr_device), :).StimSettings{1} = ...
-            [all_data_table(strcmp(all_data_table.Devices, curr_device), :).StimSettings{1}; denest_and_process_stim_settings(stimLogSettings, stimMetaData, session_descriptors)];
-
-        all_data_table(strcmp(all_data_table.Devices, curr_device), :).EventLog{1} = ...
-            [all_data_table(strcmp(all_data_table.Devices, curr_device), :).EventLog{1}; eventLogTable];
-    end
-
-end
 
 %%
-for i=1:size(all_data_table,1)
-    writetable(all_data_table(i,:).TDSettings{1}, fullfile(settings_path, 'TDSettings.csv'))
-    writetable(all_data_table(i,:).FftAndPowerSettings{1}, fullfile(settings_path, 'FftAndPowerSettings.csv'))
-    writetable(all_data_table(i,:).DetectorSettings{1}, fullfile(settings_path, 'DetectorSettings.csv'))
-    writetable(all_data_table(i,:).AdaptiveSettings{1}, fullfile(settings_path, 'AdaptiveSettings.csv'))
-    writetable(all_data_table(i,:).StimSettings{1}, fullfile(settings_path, 'StimSettings.csv'))
-    writetable(all_data_table(i,:).EventLog{1}, fullfile(settings_path, 'EventLogs.csv'))
-end
-
-%%
-% session_descriptor = table;
-% session_descriptor.Device = 'RCS12L';
-% td_settings_adjusted = denest_and_process_td_settings(timeDomainSettings, session_descriptor);
-% ps = denest_and_process_fft_power_settings(powerSettings, session_descriptor);
-% as = denest_and_process_adaptive_settings(AdaptiveStimSettings, session_descriptor);
-% stim = denest_and_process_stim_settings(stimLogSettings, stimMetaData, session_descriptor);
-% det = denest_and_process_detector_settings(DetectorSettings, session_descriptor);
-
-% Function to read YAML file (basic implementation)
-function result = read_yaml(filename)
-    fid = fopen(filename, 'r');
-    content = textscan(fid, '%s', 'Delimiter', '\n');
-    fclose(fid);
-    content = content{1};
-    result = struct();
-    for i = 1:length(content)
-        line = strtrim(content{i});
-        if ~isempty(line) && line(1) ~= '#'
-            parts = strsplit(line, ':');
-            if length(parts) == 2
-                key = strtrim(parts{1});
-                value = strtrim(parts{2});
-                result.(key) = value;
-            end
-        end
-    end
-end
+writetable(denest_and_process_td_settings(timeDomainSettings, metaData, session_descriptors), fullfile(settings_path, 'TDSettings.csv'))
+writetable(denest_and_process_fft_power_settings(powerSettings, session_descriptors), fullfile(settings_path, 'FftAndPowerSettings.csv'))
+writetable(denest_and_process_detector_settings(DetectorSettings, session_descriptors), fullfile(settings_path, 'DetectorSettings.csv'))
+writetable(denest_and_process_adaptive_settings(AdaptiveStimSettings, session_descriptors), fullfile(settings_path, 'AdaptiveSettings.csv'))
+writetable(denest_and_process_stim_settings(stimLogSettings, stimMetaData, session_descriptors), fullfile(settings_path, 'StimSettings.csv'))
+writetable(eventLogTable, fullfile(settings_path, 'EventLogs.csv'))
 
 
 %%
@@ -173,21 +98,25 @@ function [td_settings_adjusted] = denest_and_process_td_settings(td_settings, me
     ep_mode = zeros(1,4);
     gains = zeros(1,4);
     hpf = zeros(1,4);
+    lpf1 = zeros(1,4);
+    lpf2 = zeros(1,4);
     td_settings_adjusted = td_settings(:,1:end-1);
  
     for i=1:size(td_settings_adjusted, 1)
         ep_mode = [td_settings.TDsettings{i,1}.evokedMode];
         gains = [td_settings.TDsettings{i,1}.gain];
         hpf = [td_settings.TDsettings{i,1}.hpf];
-        
+        lpf1 = [td_settings.TDsettings{i,1}.lpf1];
+        lpf2 = [td_settings.TDsettings{i,1}.lpf2];
         % Double check that the below is going into the correct row
-        td_settings_adjusted.evokedMode{i} = ep_mode;
-        td_settings_adjusted.gain{i} = gains;
-        td_settings_adjusted.hpf{i} = hpf;
-
+        td_settings_adjusted.evokedMode_chan{i} = ep_mode;
+        td_settings_adjusted.gain_chan{i} = gains;
+        td_settings_adjusted.hpf_chan{i} = hpf;
+        td_settings_adjusted.lpf1_chan{i} = lpf1;
+        td_settings_adjusted.lpf2_chan{i} = lpf2;
     end
     
-    gains_row = renamevars(struct2table(metaData.ampGains), {'Amp1', 'Amp2', 'Amp3', 'Amp4'}, {'gain_1', 'gain_2', 'gain_3', 'gain_4'});
+    gains_row = renamevars(struct2table(metaData.ampGains), {'Amp1', 'Amp2', 'Amp3', 'Amp4'}, {'AmpGain_chan_1', 'AmpGain_chan_2', 'AmpGain_chan_3', 'AmpGain_chan_4'});
     gains = repmat(gains_row, size(td_settings_adjusted, 1), 1);
 
     session_descriptors = repmat(session_descriptors, size(td_settings_adjusted, 1), 1);

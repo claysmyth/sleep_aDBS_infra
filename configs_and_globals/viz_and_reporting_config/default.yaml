@@ -1,0 +1,67 @@
+# Organization and Logging info
+local_reporting:
+  project: '${global_config.PROJECT_NAME}'
+  reporting_path_base: '${global_config.FILE_OUT_BASE_PATH}'  
+  # add session type, rcs#, and session# during execution
+  run_tracking_csv: '${global_config.FILE_OUT_BASE_PATH}/sleep_aDBS_run_tracking.csv'
+  code_snapshot_exclude:
+
+# WandB logging
+wandb:
+  project: '${global_config.PROJECT_NAME}'
+  entity: littlestarr
+
+# Visualization functions to log
+functions:
+  plot_powerbands_plotly:
+    data: "raw_data" # Should match the name of the function in analysis_config.yaml
+    log: 
+      - "WandB" #optional, if you want to log to wandb. Highly recommended
+      # - "file"
+      # - "prefect" #optional, if you want to log to prefect
+    kwargs: # optional, if you want to pass in additional arguments to the function. Can have as many as you want
+      title: "RC+S Power Bands"
+      filter_on: "Power_Band8"
+      powerband_legend:
+        Power_Band1: "BG_Delta"
+        Power_Band2: "BG_AlphaTheta"
+        Power_Band5: "CS_Delta"
+        Power_Band6: "CS_AlphaTheta"
+        Power_Band7: "M1_Beta"
+        Power_Band8: "M1_LowGamma"
+      
+  plot_spectrograms_plotly:
+    data: "get_spectrograms_polars" # Should match the name of the function in analysis_config.yaml
+    log: 
+      - "WandB" #optional, if you want to log to wandb. Highly recommended
+      # - "file"
+      # - "prefect" #optional, if you want to log to prefect
+    kwargs: # optional, if you want to pass in additional arguments to the function. Can have as many as you want
+      title: "Spectrogram by Channel"
+
+    
+  polars_table_to_wandb:
+    data: 'rcs_cDBS_qa_analysis'
+    log: 
+      - "WandB" #optional, if you want to log to wandb. Highly recommended
+    kwargs:
+      table_name: "QA Table"
+
+  
+  plot_psds_wandb:
+    data: "get_psd_polars" # Should match the name of the function in analysis_config.yaml
+    log: 
+      - "WandB" #optional, if you want to log to wandb. Highly recommended
+      # - "file"
+      # - "prefect" #optional, if you want to log to prefect
+    kwargs: # optional, if you want to pass in additional arguments to the function. Can have as many as you want
+      title: "Log Power Spectral Density"
+
+
+  raw_data:
+    data: "raw_data"
+    log:
+      - "file"
+    kwargs:
+      title: ""
+

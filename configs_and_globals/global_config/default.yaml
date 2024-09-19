@@ -1,12 +1,12 @@
 
 # Global variables for the project, such as paths to data parquet, settings, and duckdb database
-PROJECT_NAME: 'Sleep_aDBS_debug'
+PROJECT_NAME: 'Sleep_aDBS'
 # PROJECT_CSV_PATH: '../some_path/for_rcs_scbs_session_csv' # Project CSV generated from file-mover analyzing the session-types
-PROJECT_CSV_PATH: '/media/longterm_hdd/Clay/Sleep_aDBS_debug/Sleep_Summary_infra_debug.csv'
-REPORTED_SESSIONS_CSV_PATH: '/media/longterm_hdd/Clay/Sleep_aDBS_debug/sleep_adbs_reported_sessions.csv' # CSV with past sessions
+PROJECT_CSV_PATH: '/media/longterm_hdd/Clay/${global_config.PROJECT_NAME}/Sleep_aDBS_Summary.csv'
+REPORTED_SESSIONS_CSV_PATH: '/media/longterm_hdd/Clay/${global_config.PROJECT_NAME}/Sleep_aDBS_reported_sessions.csv' # CSV with past sessions
 
 # TODO: figure out how I want directories to be organized
-FILE_OUT_BASE_PATH: '/media/longterm_hdd/Clay/Sleep_aDBS_debug/' # Time domain parquets, for matlab code
+FILE_OUT_BASE_PATH: '/media/longterm_hdd/Clay/${global_config.PROJECT_NAME}' # Time domain parquets, for matlab code
 # SETTINGS_PARQUET_BASE_PATH: '../some_path/sub_path_needed_for_individual' # Settings saved from RC+S sessions, for matlab code
 
 DUCKDB_PATH: '../some_path/for_duckdb_database'
@@ -14,4 +14,5 @@ OPTIMIZATION_LOGS_BASE_PATH: '../some_path/for_optimization_logs' # For saving o
 ADAPTIVE_CONFIGS_BASE_PATH: '../some_path/for_adaptive_configs' # For saving adaptive configs
 
 # Terminal commands
-MATLAB_PROCESS_SESSION_COMMAND: /usr/local/MATLAB/R2022a/bin/matlab -nodisplay -nosplash -nodesktop "run('/matlab/process_sessions.m'); exit;" # Command to run MATLAB
+# Command to run shell script, which executes the MATLAB command.
+MATLAB_SHELL_COMMAND: /home/claysmyth/code/sleep_aDBS_infra/shell/run_matlab_process_sessions.sh

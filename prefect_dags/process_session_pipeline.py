@@ -5,18 +5,20 @@ from src.processRCS_utils.processRCS_wrapper import processRCS_wrapper
 import tempfile
 import polars as pl
 import os
+import glob
 import warnings
-from configs_and_globals.configs import global_config
+# from configs_and_globals.configs import global_config
+
+TEMP_DIR = 'matlab'
 
 @task
-def prepare_output_dir(session):
+def prepare_output_dirs_deprecated(session, global_config):
     # Verify destination directory exists. If not, create it.
     # Using convention for directory structure: 
     # Time domain data: project_name/session_type/RCS#<side>/time_domain/session#.parquet
     # &
     # Settings: project_name/session_type/RCS#<side>/settings/session#/[time_domain, stim_settings, etc...].csv
     # Actual parquets and csvs will be written to the directories within processRCS_wrapper
-    project_name = global_config["PROJECT_NAME"]
     rcs_num = session.select("Device").item()
     session_type = session.get_column("SessionType(s)").to_list()
     if len(session_type) > 1:
@@ -31,8 +33,8 @@ def prepare_output_dir(session):
 
     session = pl.concat([session,
         pl.DataFrame({
-            "parquet_path": os.path.join(output_dir, "time_domain"),
-            "csv_path": os.path.join(output_dir, "settings", session.select(pl.col("Session#")).item())
+            "parquet_path": os.path.join(output_dir, "time_domain_data"),
+            "csv_path": os.path.join(output_dir, "session_settings", session.select(pl.col("Session#")).item())
         })], 
         how="horizontal"
     )
@@ -41,9 +43,57 @@ def prepare_output_dir(session):
 
 
 @task
-def cache_session_names(session):
+def prepare_output_dirs(sessions_info, global_config):
+    # Verify destination directory exists. If not, create it.
+    # Using convention for directory structure: 
+    # Time domain data: project_name/session_type/RCS#<side>/time_domain/session#.parquet
+    # &
+    # Settings: project_name/session_type/RCS#<side>/settings/session#/[time_domain, stim_settings, etc...].csv
+    # Actual parquets and csvs will be written to the directories within processRCS_wrapper
+
+    sessions_info = sessions_info.with_columns(
+        pl.concat_str([
+            pl.lit(global_config["FILE_OUT_BASE_PATH"]),
+            pl.col("SessionType(s)"),
+            pl.col('Device')
+        ],
+        separator="/"
+        ).alias("output_dir")
+    ).with_columns(
+        pl.concat_str([
+            pl.col("output_dir"),
+            pl.lit("time_domain_data"),
+            pl.col("Session#") + ".parquet"
+        ],
+        separator="/"
+        ).alias("parquet_path"),
+        pl.concat_str([
+            pl.col("output_dir"),
+            pl.lit("session_settings"),
+            pl.col("Session#")], separator="/").alias("csv_path")
+    )
+
+    # Verify destination directory exists. If not, create it.
+    for output_dir in sessions_info.get_column("output_dir").to_list():
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+    return sessions_info
+
+
+
+@task
+def remove_matlab_temp_files(tmp_dir='matlab'):
+    # Remove temporary CSV files in the 'matlab' directory, to start fresh each time
+    temp_files = glob.glob(os.path.join(tmp_dir, 'tmp*.csv'))
+    for file in temp_files:
+        os.remove(file)
+
+
+@task
+def cache_session_info(session, tmp_dir=TEMP_DIR):
     # Create a temporary file to store the session DataFrame as a CSV, RCS number, and other important variables
-    with tempfile.NamedTemporaryFile(mode='w+', suffix=".csv", delete=False, dir='matlab') as temp_file:
+    with tempfile.NamedTemporaryFile(mode='w+', suffix=".csv", delete=False, dir=tmp_dir) as temp_file:
         # Write the RCS number and a newline to the file
         #temp_file.write(f"{session.select(pl.col('Device')).item()}\n")
         # Save the session DataFrame as a CSV in the temporary file
@@ -53,20 +103,22 @@ def cache_session_names(session):
         return temp_file.name
 
 @flow
-def process_session(session):
+def process_session(session, global_config):
 
-    # Prepare output directories for processed data and settings
-    session = prepare_output_dir(session)
+    # Remove temporary CSV files in the 'matlab' directory
+    remove_matlab_temp_files(TEMP_DIR)
 
     # Get session data and run through ProcessRCS. Get combinedDataTable and settings
-    sessions_tmp_file = cache_session_names(session)
+    sessions_tmp_file = cache_session_info(session, TEMP_DIR)
     
     try:
-        # Run process RCS on with tmp file available
-        processRCS_wrapper()
+        # Run process RCS on with tmp file available. processRCS_wrapper will read the tmp file to get the session info.
+        # Assumes that the tmp file will be in the same directory as the matlab executable
+        processRCS_wrapper(global_config)
         
         # The ingested data is assumed to be a combinedDataTable (as produced by Analysis_rcs_data.createCombinedDataTable)
-        data = pl.read_parquet("file/path/to/processed/data")
+        data = pl.read_parquet(session.get_column("parquet_path").item()).sort('localTime')
+        
     finally:
         # Delete the temporary file
         if os.path.exists(sessions_tmp_file):

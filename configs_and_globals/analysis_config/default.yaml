@@ -1,0 +1,44 @@
+# Analysis functions to execute on each recording session.
+# Key must be a function in src.analysis.analysis_funcs
+functions:
+
+  rcs_cDBS_qa_analysis:
+    # Dummy kwarg to pass to the function, to keep the function signature consistent with other analysis functions.
+    kwargs: 'dummy_kwarg'
+  
+  get_psd_polars:
+    td_columns:
+      - 'TD_key0'
+      - 'TD_key2'
+      - 'TD_key3'
+    freq_range: [0.5, 100]
+    sampling_frequency: 500
+    window_size: 1000
+    noverlap: 500
+    epoch: True
+  
+  get_spectrograms_polars:
+    td_columns:
+      - 'TD_key0'
+      - 'TD_key2'
+      - 'TD_key3'
+    fs: 500
+    win_size: 5000
+    hop: 2500
+    log: True
+    freq_ranges: [[0.5, 100]]
+  
+  
+  
+
+
+# Criteria to determine if multiple recordings should be aggregated into a single group.
+# Must be a function in src.analysis.aggregation_criteria
+# E.g. recordings started within a time delta of each other.
+aggregation_criteria: # Can be empty or Null if no aggregation is desired.
+  agg_func:
+    time_delta_from_first_session: # The first argument of the function session tables, and the second a list of the analysis_pipe outputs for each session, and the rest are keyword arguments for the criteria function.
+      max_time_delta: 10 # Hours
+  buffer_sessions: 
+    step_size: '2ms' # Remove and set to only value to None if no buffering is desired.
+

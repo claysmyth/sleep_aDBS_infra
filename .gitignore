@@ -1,2 +1,6 @@
 notebooks/exploratory
 credentials/
+wandb/
+.vscode/*
+outputs/
+.env
