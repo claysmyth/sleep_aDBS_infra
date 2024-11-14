@@ -2,8 +2,10 @@
 # Global variables for the project, such as paths to data parquet, settings, and duckdb database
 PROJECT_NAME: 'Sleep_aDBS'
 # PROJECT_CSV_PATH: '../some_path/for_rcs_scbs_session_csv' # Project CSV generated from file-mover analyzing the session-types
-PROJECT_CSV_PATH: '/media/longterm_hdd/Clay/${global_config.PROJECT_NAME}/Sleep_aDBS_Summary.csv'
+PROJECT_CSV_PATH:  /media/dropbox_hdd/Starr Lab Dropbox/Projects/Sleep_aDBS/Sleep_aDBS_Summary.csv # '/media/longterm_hdd/Clay/${global_config.PROJECT_NAME}/Sleep_aDBS_Summary.csv'
+# /media/dropbox_hdd/Starr Lab Dropbox/Projects/Sleep_aDBS/Sleep_aDBS_Summary.csv
 REPORTED_SESSIONS_CSV_PATH: '/media/longterm_hdd/Clay/${global_config.PROJECT_NAME}/Sleep_aDBS_reported_sessions.csv' # CSV with past sessions
+SESSIONS_TO_SKIP_CSV_PATH: '/media/longterm_hdd/Clay/${global_config.PROJECT_NAME}/Sleep_aDBS_sessions_to_skip.csv' # CSV with sessions to skip
 
 # TODO: figure out how I want directories to be organized
 FILE_OUT_BASE_PATH: '/media/longterm_hdd/Clay/${global_config.PROJECT_NAME}' # Time domain parquets, for matlab code

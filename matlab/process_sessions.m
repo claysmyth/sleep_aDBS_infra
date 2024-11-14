@@ -70,10 +70,16 @@ td_parquet_out_file_path = fullfile(parquet_path);
 % Drop this column, as it tends to give problems and only indicates
 % which power band channels are active (which can be easily inferred
 % from data or TD channel settings)
-combinedDataTable.Power_ValidDataMask = [];
+% Check if the columns exist before attempting to remove them
+if ismember('Power_ValidDataMask', combinedDataTable.Properties.VariableNames)
+    combinedDataTable.Power_ValidDataMask = [];
+end
+
 % Not even sure what this column does... something about internal vs
 % test values
-combinedDataTable.Power_ExternalValuesMask = [];
+if ismember('Power_ExternalValuesMask', combinedDataTable.Properties.VariableNames)
+    combinedDataTable.Power_ExternalValuesMask = [];
+end
 
 % Add a new column to combinedDataTable with the session number
 sessionNumber = repmat(session_info.('Session_')(1), height(combinedDataTable), 1);

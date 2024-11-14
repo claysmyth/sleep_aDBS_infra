@@ -20,7 +20,9 @@ def null_ratio(data: pl.DataFrame, columns: list[str]) -> pl.DataFrame:
         pl.DataFrame: A DataFrame containing the percentage of null values for each specified column.
     """
     return data.select(
-        (pl.col(*columns).null_count() / pl.col(*columns).len()).name.suffix("_null_ratio")
+        (pl.col(*columns).null_count() / pl.col(*columns).len()).name.suffix(
+            "_null_ratio"
+        )
     )
 
 
@@ -29,13 +31,18 @@ def recording_time(data: pl.DataFrame, time_col: str = "localTime") -> pl.DataFr
     Calculate the recording time for specified columns in a DataFrame.
     time_col is assumed to be a column of type pl.Datetime.
     """
-    return data.select((pl.col(time_col).max() - pl.col(time_col).min()).dt.total_minutes().alias("total_recording_time_minutes"),
-        pl.col(time_col).min().alias('Start_Time'),
-        pl.col(time_col).max().alias('End_Time')
+    return data.select(
+        (pl.col(time_col).max() - pl.col(time_col).min())
+        .dt.total_minutes()
+        .alias("total_recording_time_minutes"),
+        pl.col(time_col).min().alias("Start_Time"),
+        pl.col(time_col).max().alias("End_Time"),
     )
 
 
-def get_session_numbers(data: pl.DataFrame, session_col: str = "SessionNumber") -> pl.DataFrame:
+def get_session_numbers(
+    data: pl.DataFrame, session_col: str = "SessionNumber", device_col: str = "Device"
+) -> pl.DataFrame:
     """
     Get the unique session numbers from data.
     """
@@ -48,33 +55,45 @@ def rcs_cDBS_qa_analysis(data: pl.DataFrame, kwargs: dict) -> pl.DataFrame:
     """
     Calculate the quality assurance analysis for specified columns in a DataFrame.
     """
-    return pl.concat([
-        get_session_numbers(data),
-        recording_time(data),
-        null_ratio(data, ["^TD_key.*$"])
-    ],
-    how='horizontal')
+    return pl.concat(
+        [
+            get_session_numbers(data),
+            recording_time(data),
+            null_ratio(data, ["^TD_key.*$"]),
+        ],
+        how="horizontal",
+    )
 
 
 def rcs_aDBS_qa_analysis(data: pl.DataFrame, kwargs: dict) -> pl.DataFrame:
     """
     Calculate the quality assurance analysis for specified columns in a DataFrame.
     """
-    return pl.concat([
-        get_session_numbers(data),
-        recording_time(data),
-        time_in_each_stim_amplitude(data),
-        null_ratio(data, ["^TD_key.*$"])
-    ],
-    how='horizontal')
+    return pl.concat(
+        [
+            get_session_numbers(data),
+            recording_time(data),
+            time_in_each_stim_amplitude(data),
+            null_ratio(data, ["^TD_key.*$"]),
+        ],
+        how="horizontal",
+    )
 
 
 # ----- Time Domain Analysis Functions ------
-def time_in_each_stim_amplitude(data: pl.DataFrame, time_col: str = "localTime", stim_col: str = "stimAmplitude") -> pl.DataFrame:
+def time_in_each_stim_amplitude(
+    data: pl.DataFrame, time_col: str = "localTime", stim_col: str = "stimAmplitude"
+) -> pl.DataFrame:
     """
     Calculate the time in each stim amplitude for specified columns in a DataFrame.
     """
-    return data.group_by(stim_col).agg(pl.col(time_col).diff().dt.total_seconds().sum().alias("time_in_each_stim_amplitude"))
+    return data.group_by(stim_col).agg(
+        pl.col(time_col)
+        .diff()
+        .dt.total_seconds()
+        .sum()
+        .alias("time_in_each_stim_amplitude")
+    )
 
 
 # ----- Frequency Domain Analysis Functions ------
@@ -149,19 +168,45 @@ def get_psd_polars(
     return df.select(pl.col("^.*psd.*$"))
 
 
-def get_spectrograms_polars(df: pl.DataFrame, td_columns: list[str], **kwargs: dict) -> pl.DataFrame:
+def get_spectrograms_polars(
+    df: pl.DataFrame, td_columns: list[str], **kwargs: dict
+) -> pl.DataFrame:
     """
     Calculate the spectrogram for each time domain column in the DataFrame.
     """
     specs = {}
+    specs["localTime"] = (
+        df.select(pl.col("localTime").gather_every(kwargs.get("hop", 250)))
+        .to_numpy()
+        .flatten()
+    )
     for col in td_columns:
-        spectrogram = get_spectrograms(df.get_column(col).fill_null(0).to_numpy(), **kwargs)
+        spectrogram = get_spectrograms(
+            df.get_column(col).fill_null(0).to_numpy(), **kwargs
+        ).T  # Transpose to match timestamps as rows
+        if spectrogram.shape[0] != len(specs["localTime"]):
+            spectrogram = spectrogram[
+                : len(specs["localTime"]), :
+            ]  # Trim to match lengths, sometimes spectrogram is slightly longer than localTime (by one hop)
         specs[f"{col}_spectrogram"] = spectrogram
-    
-    return pl.DataFrame(specs)
+
+    return pl.DataFrame(specs).with_columns(
+        pl.col("localTime").dt.convert_time_zone("America/Los_Angeles")
+    )  # Converting to numpy messes with time zone. Convert back to Los Angeles time.
 
 
-def get_spectrograms(X: npt.NDArray, win_size=500, win_type='hamming', win_params={}, hop=250, fs=500, scale_to='psd', axis=-1, log=True, freq_ranges=[[0.5, 100]]):
+def get_spectrograms(
+    X: npt.NDArray,
+    win_size=500,
+    win_type="hamming",
+    win_params={},
+    hop=250,
+    fs=500,
+    scale_to="psd",
+    axis=-1,
+    log=True,
+    freq_ranges=[[0.5, 100]],
+):
     """
     Calculate the spectrogram of the input data.
 
@@ -187,26 +232,28 @@ def get_spectrograms(X: npt.NDArray, win_size=500, win_type='hamming', win_param
         Sxx = np.log10(Sxx)
 
     if freq_ranges:
-        freq_inds_to_keep = np.concatenate([
-            np.where((sft.f >= freq_range[0]) & (sft.f <= freq_range[1]))[0]
-            for freq_range in freq_ranges
-        ], axis=-1)
-        
+        freq_inds_to_keep = np.concatenate(
+            [
+                np.where((sft.f >= freq_range[0]) & (sft.f <= freq_range[1]))[0]
+                for freq_range in freq_ranges
+            ],
+            axis=-1,
+        )
+
         if axis == -1:
-            Sxx = np.take(Sxx, freq_inds_to_keep, axis=-2) # The second to last axis is the frequency axis
+            Sxx = np.take(
+                Sxx, freq_inds_to_keep, axis=-2
+            )  # The second to last axis is the frequency axis
         else:
             Sxx = np.take(Sxx, freq_inds_to_keep, axis=axis)
-        
+
     return Sxx
 
 
 # ----- Time-Frequency Domain Analysis Functions ------
 
 
-
-
 # ----- Signal Analysis Functions ------
-
 
 
 # ----- Data Cleaning Functions ------
@@ -309,7 +356,10 @@ def epoch_df_by_timesegment(
             )
             .agg(
                 [pl.col(td_col) for td_col in td_columns]
-                + [pl.col(td_col).count().name.suffix("_TD_count") for td_col in td_columns]
+                + [
+                    pl.col(td_col).count().name.suffix("_TD_count")
+                    for td_col in td_columns
+                ]
                 + [pl.col(col).name.suffix("_vec") for col in vector_cols]
                 + [pl.col(col).drop_nulls().last() for col in scalar_cols]
             )

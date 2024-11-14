@@ -10,6 +10,7 @@ local_reporting:
 wandb:
   project: '${global_config.PROJECT_NAME}'
   entity: littlestarr
+  # job type and group are added during execution (as device and sessiontype respectively) in VisualizationAndReportingPipeline.init_wandb
 
 # Visualization functions to log
 functions:
@@ -29,17 +30,17 @@ functions:
         Power_Band6: "CS_AlphaTheta"
         Power_Band7: "M1_Beta"
         Power_Band8: "M1_LowGamma"
-      
+      rolling_window: '30s' # Optional, if you want to apply a rolling window to the powerbands plot. Must be a string with a duration, e.g. '30s', '1min', '1hr'.
+
   plot_spectrograms_plotly:
     data: "get_spectrograms_polars" # Should match the name of the function in analysis_config.yaml
     log: 
-      - "WandB" #optional, if you want to log to wandb. Highly recommended
-      # - "file"
+      # - "WandB" #optional, if you want to log to wandb. Highly recommended
+      - "file"
       # - "prefect" #optional, if you want to log to prefect
     kwargs: # optional, if you want to pass in additional arguments to the function. Can have as many as you want
       title: "Spectrogram by Channel"
 
-    
   polars_table_to_wandb:
     data: 'rcs_cDBS_qa_analysis'
     log: 
@@ -47,7 +48,6 @@ functions:
     kwargs:
       table_name: "QA Table"
 
-  
   plot_psds_wandb:
     data: "get_psd_polars" # Should match the name of the function in analysis_config.yaml
     log: 
@@ -56,7 +56,6 @@ functions:
       # - "prefect" #optional, if you want to log to prefect
     kwargs: # optional, if you want to pass in additional arguments to the function. Can have as many as you want
       title: "Log Power Spectral Density"
-
 
   raw_data:
     data: "raw_data"

@@ -4,3 +4,4 @@ wandb/
 .vscode/*
 outputs/
 .env
+tmp/

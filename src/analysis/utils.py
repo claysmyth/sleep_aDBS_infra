@@ -1,6 +1,7 @@
 import polars as pl
 from typing import List
 
+
 def epoch_df_by_timesegment(
     df: pl.DataFrame,
     interval: str = "1s",
@@ -100,7 +101,10 @@ def epoch_df_by_timesegment(
             )
             .agg(
                 [pl.col(td_col) for td_col in td_columns]
-                + [pl.col(td_col).count().name.suffix("_TD_count") for td_col in td_columns]
+                + [
+                    pl.col(td_col).count().name.suffix("_TD_count")
+                    for td_col in td_columns
+                ]
                 + [pl.col(col).name.suffix("_vec") for col in vector_cols]
                 + [pl.col(col).drop_nulls().last() for col in scalar_cols]
             )
