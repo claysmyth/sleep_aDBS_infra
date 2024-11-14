@@ -1,7 +1,7 @@
 notebooks/exploratory
 credentials/
 wandb/
-.vscode/*
 outputs/
 .env
 tmp/
+.vscode/
