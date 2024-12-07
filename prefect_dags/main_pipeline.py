@@ -95,9 +95,13 @@ def session_analysis_main_pipeline(cfg: DictConfig):
             sessions_subset_info.get_column("Device")[0],
             sessions_subset_info.get_column("SessionType(s)")[0],
         ):
-            sessions_subset_info = sessions_subset_info.with_columns(
-                pl.col("TimeStarted").str.to_datetime(format="%m-%d-%Y %H:%M:%S")
-            ).sort("TimeStarted")
+            sessions_subset_info = (
+                sessions_subset_info.with_columns(
+                    pl.col("TimeStarted")
+                    .str.to_datetime(format="%m-%d-%Y %H:%M:%S")
+                )
+                .sort("TimeStarted")
+            )
             sessions_data = []
             for i in range(sessions_subset_info.height):
                 print(

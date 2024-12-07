@@ -18,3 +18,7 @@ ADAPTIVE_CONFIGS_BASE_PATH: '../some_path/for_adaptive_configs' # For saving ada
 # Terminal commands
 # Command to run shell script, which executes the MATLAB command.
 MATLAB_SHELL_COMMAND: /home/claysmyth/code/sleep_aDBS_infra/shell/run_matlab_process_sessions.sh
+
+
+# Timezone
+TIMEZONE: 'America/Los_Angeles'

@@ -1,3 +1,6 @@
+# Timezone
+TIMEZONE: '${global_config.TIMEZONE}'
+
 # Organization and Logging info
 local_reporting:
   project: '${global_config.PROJECT_NAME}'

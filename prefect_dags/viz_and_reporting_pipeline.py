@@ -65,7 +65,8 @@ class VisualizationAndReportingPipeline:
                 "session_info": wandb.Table(
                     dataframe=session_info.select(
                         pl.exclude("Data_Server_Hyperlink")
-                    ).to_pandas()
+                    # Polars to pandas conversion can mess up timezone info, so explicitly set it
+                    ).to_pandas().assign(TimeStarted=lambda df: pd.to_datetime(df['TimeStarted']).dt.tz_localize(self.config["TIMEZONE"]))
                 )
             }
         )
