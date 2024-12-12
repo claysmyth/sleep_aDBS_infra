@@ -7,8 +7,7 @@ PROJECT_CSV_PATH:  /media/dropbox_hdd/Starr Lab Dropbox/Projects/Sleep_aDBS/Slee
 REPORTED_SESSIONS_CSV_PATH: '/media/longterm_hdd/Clay/${global_config.PROJECT_NAME}/Sleep_aDBS_reported_sessions.csv' # CSV with past sessions
 SESSIONS_TO_SKIP_CSV_PATH: '/media/longterm_hdd/Clay/${global_config.PROJECT_NAME}/Sleep_aDBS_sessions_to_skip.csv' # CSV with sessions to skip
 
-# TODO: figure out how I want directories to be organized
-FILE_OUT_BASE_PATH: '/media/longterm_hdd/Clay/${global_config.PROJECT_NAME}' # Time domain parquets, for matlab code
+FILE_OUT_BASE_PATH: '/media/longterm_hdd/Clay/${global_config.PROJECT_NAME}/data' # Time domain parquets, for matlab code
 # SETTINGS_PARQUET_BASE_PATH: '../some_path/sub_path_needed_for_individual' # Settings saved from RC+S sessions, for matlab code
 
 DUCKDB_PATH: '../some_path/for_duckdb_database'

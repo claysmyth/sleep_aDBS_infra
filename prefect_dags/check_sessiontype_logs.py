@@ -169,8 +169,17 @@ def check_sessiontype_logs():
                             try:
                                 session_eventLog = json.load(f)
                             except json.JSONDecodeError as e:
-                                print(
-                                    f"Error decoding JSON from {eventlog_path}: {e} for session {filename} for device {key}"
+                                err_string = f"Error decoding JSON from {eventlog_path}: {e} for session {filename} for device {key}"
+                                print(err_string)
+                                patient_sessions.append(
+                                    {
+                                        filename: {
+                                            "start_time": local_datetime,
+                                            "error": err_string,
+                                            "sessiontypes": "Cannot Determine",
+                                            "file_sizes": {},
+                                        }
+                                    }
                                 )
                                 continue
 
