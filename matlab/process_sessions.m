@@ -16,7 +16,7 @@ session_info = readtable(csv_files(1).name, 'Delimiter', ',', 'ReadVariableNames
 % Check if destination folders exist, if not create them
 for i = 1:height(session_info)
     parquet_path = session_info.parquet_path{i};
-    settings_path = session_info.csv_path{i};
+    settings_path = session_info.settings_path{i};
     
     % Check and create parquet_dir (where parquet goes) if it doesn't exist
     [parquet_dir, filename, ext] = fileparts(parquet_path);

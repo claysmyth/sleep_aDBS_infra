@@ -48,7 +48,7 @@ def prepare_output_dirs_deprecated(session, global_config):
             pl.DataFrame(
                 {
                     "parquet_path": os.path.join(output_dir, "time_domain_data"),
-                    "csv_path": os.path.join(
+                    "settings_path": os.path.join(
                         output_dir,
                         "session_settings",
                         session.select(pl.col("Session#")).item(),
@@ -92,7 +92,7 @@ def prepare_output_dirs(sessions_info, global_config):
         pl.concat_str(
             [pl.col("output_dir"), pl.lit("session_settings"), pl.col("Session#")],
             separator="/",
-        ).alias("csv_path"),
+        ).alias("settings_path"),
     )
 
     # Verify destination directory exists. If not, create it.

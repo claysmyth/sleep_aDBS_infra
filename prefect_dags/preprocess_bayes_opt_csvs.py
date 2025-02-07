@@ -1,5 +1,6 @@
 ## This file is used to preprocess the bayes opt csvs. It ingests the sleep_aDBS_reported_sessions and aggregates the necessary info and filepaths into another csv, that is ultimately ingested into the bayes opt pipeline.
 # SHOULD RUN AFTER THE MAIN PIPELINE
+# Move to BayesOptPipeline ?? Makes more sense there
 import polars as pl
 from prefect import flow, task
 from prefect_dags.main_pipeline import get_new_sessions

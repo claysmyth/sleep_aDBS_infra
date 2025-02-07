@@ -76,7 +76,7 @@ class VisualizationAndReportingPipeline:
         # Log settings CSV files for each session in grouping
         tables = {}
         for i in range(session_info.height):
-            csv_dir = session_info[i, "csv_path"]
+            csv_dir = session_info[i, "settings_path"]
             if os.path.isdir(csv_dir):
                 for filename in os.listdir(csv_dir):
                     if filename.endswith(".csv"):
@@ -165,9 +165,14 @@ class VisualizationAndReportingPipeline:
             wandb_run = None
 
         for func_name, func_config in self.config["functions"].items():
+            # func_name is the name of the function to execute
+            # The first kwarg of the function is the name of the data to plot. The "data" is a key in the analyses dictionary (e.g. "raw_data"). 
+            # The value corresponding to the key in the analyses dictionary is the actual data to plot (e.g. a polars dataframe corresponding to the raw data table, or some other processed dataframe).
+            # The second kwarg is the log_options, which is a list of options for where to log the plot.
+            # The third kwarg is the function-specific kwargs, which is a dictionary of additional keyword arguments to pass to the function
+
             data_source = func_config["data"]
             log_options = func_config.get("log", [])
-            kwargs = func_config.get("kwargs", {})
 
             # Get the data from the analyses results
             if data_source in analyses:
@@ -200,6 +205,8 @@ class VisualizationAndReportingPipeline:
             wandb_run.finish()
 
         print("Visualization pipeline completed successfully.")
+
+        return path
 
 
 # Example usage:

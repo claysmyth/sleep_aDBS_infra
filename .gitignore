@@ -5,3 +5,16 @@ outputs/
 .env
 tmp/
 .vscode/
+*.out
+
+# Python cache files
+*.pyc
+*cpython*
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Log files
+*.log
+logs/
+

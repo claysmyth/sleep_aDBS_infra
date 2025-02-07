@@ -87,6 +87,7 @@ def session_analysis_main_pipeline(cfg: DictConfig):
     sessions_info = prepare_output_dirs(sessions_info, global_config)
     cycled_session_numbers = []
     skipped_sessions = []
+    session_report_paths = {'Session#': [], 'session_report_path': []}
     for sessions_subset_info in sessions_info.partition_by(
         ["Device", "SessionType(s)"]
     ):
@@ -163,7 +164,10 @@ def session_analysis_main_pipeline(cfg: DictConfig):
                     analyses["raw_data"] = data
 
                     # Visualize the data and log to relevant dashboards (e.g. WandB, prefect, and local)
-                    visualization_pipe.run(data, analyses, session_info_grouped[i])
+                    # visualization_pipe.run(data, analyses, session_info_grouped[i])
+                    path = visualization_pipe.run(data, analyses, session_info_grouped[i])
+                    session_report_paths['Session#'].extend(session_info_grouped[i].get_column("Session#").to_list())
+                    session_report_paths['session_report_path'].extend([path]*session_info_grouped[i].height)
                 except Exception as e:
                     print(
                         f"Error during analysis or visualization for session(s): {session_info_grouped[i].get_column('Device').unique().to_list()} - {session_info_grouped[i].get_column('Session#').to_list()}"
@@ -175,13 +179,6 @@ def session_analysis_main_pipeline(cfg: DictConfig):
 
                 # Saving to DuckDB (maybe after Bayesian optimization?)
 
-            # ! Not implemented yet
-            # Run Bayesian optimization on the data
-            # TODO: Maybe include bayesian optimization in the group loop? This will simplify the reporting,
-            #               but will potentially increase complexity of trying to incorporate multiple observations of reward function simultaneously (one for each group).
-            # TODO: Add Bayesian optimization to the pipeline. Each group of sessions will act as invidiual observations of reward function.
-            # TODO: Ideally include functionality to incorporate multiple observations simultaneously.
-
             # Updated reported sessions df and save to csv (each iteration, so that if the script is killed, it can resume where it left off)
             cycled_session_numbers.extend(
                 sessions_subset_info.get_column("Session#").to_list()
@@ -191,17 +188,28 @@ def session_analysis_main_pipeline(cfg: DictConfig):
                 set(cycled_session_numbers) - set(skipped_sessions)
             )
 
+            # Process sessions_info for adding to reported sessions df
+            sessions_info_updated = sessions_info.filter(
+                        pl.col("Session#").is_in(cycled_session_numbers)
+                ).select(pl.all().exclude("Group"))
+            
+            # Add session report paths to session info
+            if pl.DataFrame(session_report_paths).height > 0:
+                sessions_info_updated = sessions_info_updated.join(
+                    pl.DataFrame(session_report_paths),
+                    on="Session#",
+                    how="left",
+                )
+            else:
+                sessions_info_updated = sessions_info_updated.with_columns(pl.lit(None).alias("session_report_path"))
+
             # Add processed sessions to past sessions which were already reported
             if reported_sessions_df.height > 0:
                 dynamically_reported_sessions_df = reported_sessions_df.vstack(
-                    sessions_info.filter(
-                        pl.col("Session#").is_in(cycled_session_numbers)
-                    ).select(pl.all().exclude("Group"))
+                    sessions_info_updated
                 )
             else:
-                dynamically_reported_sessions_df = sessions_info.filter(
-                    pl.col("Session#").is_in(cycled_session_numbers)
-                ).select(pl.all().exclude("Group"))
+                dynamically_reported_sessions_df = sessions_info_updated
 
             # Record to csv
             dynamically_reported_sessions_df.write_csv(
