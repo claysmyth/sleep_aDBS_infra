@@ -6,7 +6,7 @@ def time_delta_from_first_session(session_df, data=None, max_time_delta=8):
     If the start time of subsequent sessions is within the time delta of the first session, then those sessions are aggregated.
     session_df: polars DataFrame containing session information, formatted from 'Project' directory csv.
     data: list of polars DataFrames containing the raw data for each session. None here, because not used. To keep consistent with other aggregation criteria.
-    max_time_delta: maximum time delta between first and subsequent sessions to be aggregated.
+    max_time_delta: maximum time delta (in hours) between first and subsequent sessions to be aggregated.
     """
 
     session_df = session_df.with_columns(

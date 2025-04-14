@@ -81,6 +81,34 @@ if ismember('Power_ExternalValuesMask', combinedDataTable.Properties.VariableNam
     combinedDataTable.Power_ExternalValuesMask = [];
 end
 
+%%
+% Prep combinedDataTable for writing to parquet
+% The below columns cause issues with writing to parquet because of
+% inconstitencies between NaNs (as doubles) and values (cells)
+
+% List of adaptive columns that need type consistency handling
+adaptive_columns_for_fixing = {'Adaptive_StimFlags', 'Adaptive_SensingStatus', ...
+    'Adaptive_CurrentAdaptiveState', 'Adaptive_Ld0DetectionStatus', ...
+    'Adaptive_Ld1DetectionStatus', 'Adaptive_PreviousAdaptiveState'};
+
+% Process each adaptive column
+for col = adaptive_columns_for_fixing
+    column_name = col{1};
+    if ismember(column_name, combinedDataTable.Properties.VariableNames)
+        % Get the column data
+        column_data = combinedDataTable.(column_name);
+        
+        % Create a function to handle each cell
+        process_cell = @(x) process_adaptive_cell(x);
+        
+        % Apply the function to each cell in the column
+        new_column = cellfun(process_cell, column_data, 'UniformOutput', false);
+        
+        % Replace the original column
+        combinedDataTable.(column_name) = new_column;
+    end
+end
+
 % Add a new column to combinedDataTable with the session number
 sessionNumber = repmat(session_info.('Session_')(1), height(combinedDataTable), 1);
 combinedDataTable.SessionNumber = sessionNumber;
@@ -290,4 +318,30 @@ function [detector_settings_adjusted] = denest_and_process_detector_settings(det
     detector_settings_adjusted = horzcat(session_descriptors, detector_settings_adjusted);
 end
 
-
+%%
+% Helper function to process each cell
+function result = process_adaptive_cell(x)
+    if iscell(x) && numel(x) == 1
+        % Unwrap the cell
+        inner_value = x{1};
+        
+        % Handle the inner value
+        if isempty(inner_value)
+            result = '';
+        elseif isnumeric(inner_value) && isnan(inner_value)
+            result = '';
+        elseif isnumeric(inner_value)
+            result = num2str(inner_value);
+        else
+            result = inner_value;
+        end
+    elseif isempty(x)
+        result = '';
+    elseif isnumeric(x) && isnan(x)
+        result = '';
+    elseif isnumeric(x)
+        result = num2str(x);
+    else
+        result = x;
+    end
+end

@@ -5,7 +5,7 @@ from prefect import task
 
 
 @task
-def processRCS_wrapper(global_config, timeout=300):  # Default timeout of 300 seconds
+def processRCS_wrapper(global_config, timeout=900):  # Default timeout of 900 seconds (15 minutes)
     try:
         script_path = global_config["MATLAB_SHELL_COMMAND"]
         result = subprocess.run(

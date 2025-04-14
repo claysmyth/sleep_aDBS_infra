@@ -101,6 +101,7 @@ def send_email_report(patient_dict):
                 to=EMAIL_ADDRESSES,
                 subject=f"Session Type Report for {datetime.date.today()}",
                 contents=f"""Attached is the report of patient sessions and identified session types... please review for any sessions that may be missing session type labels.
+                    File sizes are in MB.
                     
                     Report contents:
                     {json.dumps(patient_dict, indent=4)}
