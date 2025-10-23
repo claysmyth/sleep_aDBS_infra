@@ -1,0 +1,31 @@
+# Example configuration for multi-file treatment delivery
+# This shows how to configure multiple files for each treatment
+
+paths:
+  # Multiple files for adaptive treatment
+  c1_source: 
+    - "configs_and_globals/pilot_configs/adaptive_left.json"
+    - "configs_and_globals/pilot_configs/adaptive_right.json"
+  
+  # Multiple files for continuous treatment  
+  c2_source: 
+    - "configs_and_globals/pilot_configs/continuous_left.json"
+    - "configs_and_globals/pilot_configs/continuous_right.json"
+  
+  # Corresponding destination files (must match number of source files)
+  destination: 
+    - "configs_and_globals/active_left.json"
+    - "configs_and_globals/active_right.json"
+
+# Schedule generation parameters
+schedule:
+  seed: 42
+  n_nights: 12
+  block_size: 2
+  output_filename: "pilot_schedule.yaml"
+
+# Email configuration
+email:
+  addresses:
+    - "clay.smyth@ucsf.edu"
+    - "karena.balagula@ucsf.edu"
