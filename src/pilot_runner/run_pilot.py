@@ -30,6 +30,8 @@ GLOBAL_CONFIG_FILE = "pilot_config.yaml"
 DEFAULT_CONFIG_FILE = "pilot_config.yaml"
 SCHEDULE_FILE = "pilot_schedule.yaml"
 
+# TODO: Make the night numbers in 'log' and 'completed_nights' 0 indexed, to match the current_index... to avoid logging confusion.
+
 
 def load_config(config_path=DEFAULT_CONFIG_FILE):
     """Load configuration from YAML file."""

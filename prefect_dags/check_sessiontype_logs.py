@@ -14,7 +14,12 @@ import pprint
 # This script checks the session EventLog.json for a sessiontype. It is typically run via crontab at 10:00am to check for any sessions that may be missing session type labels, and emailed to the desired users.
 
 # Email addresses to send the report to
-EMAIL_ADDRESSES = ["clay.smyth@ucsf.edu", "karena.balagula@ucsf.edu"]
+EMAIL_ADDRESSES = [
+    "clay.smyth@ucsf.edu",
+    "karena.balagula@ucsf.edu", 
+    "hanna.cattan-hayat@ucsf.edu",
+    "max.zhu2@ucsf.edu"
+]
 # Path to the patient data paths JSON file, to search within synced directories for new sessions
 PATIENT_DATA_PATHS_FILE = "/home/starrlab/bin/code/rcs-database/code/database_jsons/patient_directory_names.json"
 # Where to store temporary files
@@ -217,6 +222,10 @@ def check_sessiontype_logs():
                         print(
                             f"EventLog.json not found for session {filename} in device {key}"
                         )
+                        file_sizes = {
+                            "EventLog.json": None,
+                            "RawDataTD.json": None,
+                        }
                         # If EventLog.json doesn't exist, add session with empty types list
                         patient_sessions.append(
                             {

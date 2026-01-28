@@ -6,6 +6,11 @@ outputs/
 tmp/
 .vscode/
 *.out
+shell/
+notebooks/
+src/pilot_runner/pilot_testbed/
+configs_and_globals/pilot_configs/
+configs_and_globals/rcs16_stage3/
 
 # Python cache files
 *.pyc
